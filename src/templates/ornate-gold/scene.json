@@ -1,0 +1,5 @@
+{
+  "quad": [[120, 120], [1080, 120], [1080, 780], [120, 780]],
+  "ambientLight": "#1a1a1a",
+  "hint": "wide ornate gold frame on a dark charcoal wall, dramatic spotlight, rich ambient glow"
+}
