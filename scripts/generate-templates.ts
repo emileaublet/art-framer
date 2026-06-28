@@ -75,6 +75,7 @@ async function generateTemplate(spec: TemplateSpec): Promise<void> {
     }
   }
   await sharp(maskPixels, { raw: { width: FRAME_WIDTH, height: FRAME_HEIGHT, channels: 1 } })
+    .toColorspace('b-w')
     .png()
     .toFile(join(dir, 'mask.png'))
 
