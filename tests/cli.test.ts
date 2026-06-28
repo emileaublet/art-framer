@@ -22,10 +22,10 @@ const BASE_FLAGS = [
 ].join(' ')
 
 describe('CLI', () => {
-  it('writes output PNG with new parametric flags', () => {
+  it('writes output PNG with new parametric flags', async () => {
     execSync(`node --import tsx/esm src/cli.ts ${ARTWORK} ${BASE_FLAGS}`)
     expect(existsSync(OUTPUT)).toBe(true)
-    expect(sharp(OUTPUT).metadata()).resolves.toMatchObject({ format: 'png' })
+    await expect(sharp(OUTPUT).metadata()).resolves.toMatchObject({ format: 'png' })
   })
 
   it('exits non-zero for invalid angle', () => {
