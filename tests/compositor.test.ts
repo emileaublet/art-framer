@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest'
+import { existsSync, writeFileSync, mkdirSync } from 'node:fs'
+import { join as pathJoin } from 'node:path'
 import { composite } from '../src/compositor.js'
 import { CompositorError } from '../src/types.js'
 import type { FrameOptions } from '../src/types.js'
@@ -182,6 +184,33 @@ describe('wood grain', () => {
     const minB = Math.min(...brightnesses)
     // No grain: variation should be small (shading only, not grain bumps)
     expect(maxB - minB).toBeLessThan(30)
+  })
+})
+
+describe('scene background compositing', () => {
+  const BG_DIR = pathJoin(import.meta.dirname, '../assets/scene-backgrounds')
+
+  it('uses flat wall color when no background file exists', async () => {
+    // 'white-gallery' has no background file — compositor falls back to flat color
+    const artwork = await makeColorPng(400, 560, 200, 100, 50)
+    const result = await composite(artwork, { ...baseOpts, scene: 'white-gallery' })
+    expect(await sharp(result).metadata()).toMatchObject({ format: 'png' })
+  })
+
+  it('samples background PNG for wall pixels when file exists', async () => {
+    // Write a bright-red test background at 100x100
+    mkdirSync(BG_DIR, { recursive: true })
+    const bgPath = pathJoin(BG_DIR, 'test-bg-scene.png')
+    const redBg  = await sharp({ create: { width: 100, height: 100, channels: 4, background: { r: 255, g: 0, b: 0, alpha: 1 } } }).png().toBuffer()
+    writeFileSync(bgPath, redBg)
+
+    const artwork = await makeColorPng(400, 560, 200, 200, 200)
+    const result = await composite(artwork, { ...baseOpts, scene: 'test-bg-scene' })
+
+    // Sample a wall corner pixel (top-left margin) — should be reddish from the background
+    const layout = computeLayout(baseOpts, '#f5f5f5')
+    const wallPx = await samplePixel(result, 5, 5)
+    expect(wallPx[0]).toBeGreaterThan(wallPx[1] + 50)  // red >> green (background sampled)
   })
 })
 

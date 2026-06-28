@@ -1,6 +1,7 @@
 import sharp from 'sharp'
+import { existsSync } from 'node:fs'
 import { warpArtwork } from './warp.js'
-import { resolveScene } from './scenes.js'
+import { resolveScene, backgroundPath } from './scenes.js'
 import { computeLayout } from './geometry.js'
 import type { FrameOptions, Quad, FrameMaterial } from './types.js'
 import { CompositorError } from './types.js'
@@ -182,6 +183,17 @@ export async function composite(artworkBuffer: Buffer, opts: FrameOptions): Prom
   const frameRgb = hexToRgb(FRAME_COLORS[opts.frame.material] ?? '#888888')
   const matRgb   = hexToRgb(resolveMatHex(opts.mat.color))
 
+  // Load pre-generated scene background if available
+  let bgRaw: Buffer | null = null
+  const bgFilePath = backgroundPath(opts.scene)
+  if (existsSync(bgFilePath)) {
+    bgRaw = await sharp(bgFilePath)
+      .resize(canvasW, canvasH, { fit: 'cover', position: 'center' })
+      .ensureAlpha()
+      .raw()
+      .toBuffer()
+  }
+
   const canvas = Buffer.alloc(canvasW * canvasH * 4)
 
   for (let py = 0; py < canvasH; py++) {
@@ -247,14 +259,21 @@ export async function composite(artworkBuffer: Buffer, opts: FrameOptions): Prom
         canvas[i + 2] = fb
         canvas[i + 3] = 255
       } else {
-        // Wall: darken by shadow cast from frame
+        // Wall: sample from background PNG or fall back to flat color, then apply shadow
         const sx = Math.max(0, Math.min(canvasW - 1, px - SHADOW_DX))
         const sy = Math.max(0, Math.min(canvasH - 1, py - SHADOW_DY))
         const shadowT = (shadowBuf[sy * canvasW + sx] / 255) * SHADOW_OPACITY
         const d = 1 - shadowT
-        canvas[i]     = Math.round(wallRgb[0] * d)
-        canvas[i + 1] = Math.round(wallRgb[1] * d)
-        canvas[i + 2] = Math.round(wallRgb[2] * d)
+        if (bgRaw) {
+          const bi = (py * canvasW + px) * 4
+          canvas[i]     = Math.round(bgRaw[bi]     * d)
+          canvas[i + 1] = Math.round(bgRaw[bi + 1] * d)
+          canvas[i + 2] = Math.round(bgRaw[bi + 2] * d)
+        } else {
+          canvas[i]     = Math.round(wallRgb[0] * d)
+          canvas[i + 1] = Math.round(wallRgb[1] * d)
+          canvas[i + 2] = Math.round(wallRgb[2] * d)
+        }
         canvas[i + 3] = 255
       }
     }

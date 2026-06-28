@@ -1,4 +1,8 @@
 import type { ScenePreset, FrameOptions, FrameMaterial } from './types.js'
+import { join, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
 
 export interface SceneResolved {
   bgColor: string
@@ -9,89 +13,114 @@ export interface SceneResolved {
 }
 
 export const SCENE_PRESETS: Record<ScenePreset, SceneResolved> = {
-  // --- flat wall presets (compositor-only, AI enhances texture/lighting) ---
+  // --- legacy flat presets (compositor only) ---
   'white-gallery':    { bgColor: '#f5f5f5', description: 'clean white gallery wall, soft even lighting from above' },
   'dark-moody':       { bgColor: '#1c1c1c', description: 'dark charcoal wall, dramatic raking side light with deep shadows' },
   'warm-living-room': { bgColor: '#e8d5b8', description: 'warm beige wall, natural afternoon window light from the left' },
   'concrete-loft':    { bgColor: '#9a9a8a', description: 'exposed concrete wall, cool industrial overhead lighting' },
   'natural-light':    { bgColor: '#ede8e0', description: 'off-white wall, soft diffused daylight, no harsh shadows' },
 
-  // --- AI lifestyle scene presets (Replicate postPass generates the full scene) ---
-  'textured-white-wall': {
-    bgColor: '#f0eeeb',
-    description: 'smooth white-painted plaster wall with very subtle hand-applied texture',
+  // --- 5 flat wall presets ---
+  // Compositor handles glass reflection + drop shadow; AI adds realistic texture and lighting.
+  'smooth-white-wall': {
+    bgColor: '#f2f0ed',
+    description: 'smooth white-painted plaster wall, soft even light',
     aiPrompt:
-      'Replace the plain background with a smooth white-painted plaster wall. ' +
-      'The surface has very faint hand-applied texture — almost imperceptible, like a freshly painted rental apartment. ' +
-      'Soft even ambient light from slightly above. Clean and minimal. ' +
-      'The framed artwork casts a soft, realistic drop shadow on the wall.',
+      'The background is a smooth white-painted plaster wall — almost perfectly flat, like a freshly painted room. ' +
+      'Very faint surface micro-texture from the paint roller. ' +
+      'Soft, even ambient lighting from above. No harsh shadows on the wall itself. ' +
+      'The frame casts a gentle, realistic drop shadow on the wall around its perimeter. ' +
+      'Glass on the artwork shows a subtle diagonal reflection highlight.',
   },
   'white-brick-wall': {
     bgColor: '#e9e5e0',
-    description: 'white-painted brick wall, brick pattern and mortar lines visible beneath the paint',
+    description: 'white-painted brick wall, brick and mortar lines visible under the paint',
     aiPrompt:
-      'Replace the plain background with a white-painted brick wall. ' +
-      'The brick pattern and mortar lines are clearly visible beneath the paint — like a loft or renovated industrial space. ' +
-      'Diffused even lighting, no harsh shadows on the wall itself. ' +
-      'The framed artwork casts a soft, realistic drop shadow on the bricks.',
-  },
-  'modern-living-room': {
-    bgColor: '#ddd5c5',
-    description: 'modern Scandinavian living room, light warm-white walls, natural light from the side',
-    aiPrompt:
-      'Transform the setting into a modern Scandinavian living room. ' +
-      'Light warm-white walls, natural oak or light wood flooring partially visible at the bottom of frame. ' +
-      'A minimal sofa or side table partially visible at one edge. ' +
-      'Soft natural daylight from a window to one side — gentle, not harsh. ' +
-      'Clean, uncluttered, livable. ' +
-      'The framed artwork hangs centered on the wall with a realistic drop shadow.',
-  },
-  'modern-bedroom': {
-    bgColor: '#e0dbd3',
-    description: 'calm modern bedroom, soft white walls, warm ambient light',
-    aiPrompt:
-      'Transform the setting into a calm modern bedroom. ' +
-      'Soft white or very light grey walls. A neatly made bed with neutral linen visible in the lower portion of the frame. ' +
-      'A simple bedside table or lamp partially visible to one side. ' +
-      'Warm, soft ambient evening light — not bright, relaxed. ' +
-      'Serene and minimal, no clutter. ' +
-      'The framed artwork hangs on the wall above the headboard area with a soft realistic shadow.',
-  },
-  'sage-painted-wall': {
-    bgColor: '#b8c4b0',
-    description: 'muted sage green painted wall, soft natural light',
-    aiPrompt:
-      'Replace the background with a smooth matte sage green painted wall — a muted, desaturated grey-green like a Farrow & Ball paint. ' +
-      'Very subtle surface texture from the paint. Soft, diffused natural light. ' +
-      'The framed artwork casts a gentle drop shadow on the sage wall.',
+      'The background is a white-painted brick wall. ' +
+      'The brick pattern and mortar lines are clearly visible beneath the white paint — like a renovated loft or urban apartment. ' +
+      'Diffused even overhead lighting. ' +
+      'The frame casts a soft, realistic drop shadow on the brick surface. ' +
+      'Glass on the artwork shows a subtle diagonal reflection highlight.',
   },
   'warm-plaster-wall': {
     bgColor: '#d9c9b4',
-    description: 'warm off-white or pale terracotta plaster wall, Mediterranean feel',
+    description: 'warm off-white plaster wall, slight natural texture, side lighting',
     aiPrompt:
-      'Replace the background with a warm off-white or pale terracotta-tinted plaster wall. ' +
-      'The surface has subtle natural texture — slightly uneven like old European plaster, not perfectly smooth. ' +
-      'Warm side lighting from the left, gentle shadows. ' +
-      'The framed artwork casts a soft realistic shadow on the warm plaster surface.',
+      'The background is a warm off-white or pale sand-toned plaster wall. ' +
+      'The surface has subtle natural texture — slightly uneven, like aged European plaster. Not perfectly smooth. ' +
+      'Warm natural side lighting from the left casts gentle variation across the surface. ' +
+      'The frame casts a soft realistic drop shadow on the plaster. ' +
+      'Glass on the artwork shows a subtle diagonal reflection highlight.',
+  },
+  'sage-wall': {
+    bgColor: '#b5c2ae',
+    description: 'muted sage green painted wall, soft diffused natural light',
+    aiPrompt:
+      'The background is a smooth matte sage green painted wall — a muted, desaturated grey-green like Farrow & Ball Mizzle or Lichen. ' +
+      'Very subtle paint texture. Soft, diffused natural light. ' +
+      'The frame casts a gentle drop shadow on the sage surface. ' +
+      'Glass on the artwork shows a subtle diagonal reflection highlight.',
+  },
+  'dark-charcoal-wall': {
+    bgColor: '#2a2a2a',
+    description: 'deep charcoal or near-black painted wall, dramatic directional light',
+    aiPrompt:
+      'The background is a deep charcoal, almost black painted wall — rich and matte, like a dramatic accent wall. ' +
+      'Directional overhead or side lighting creates subtle depth and warmth on the dark surface. ' +
+      'The frame casts a soft shadow that blends into the dark wall. ' +
+      'Glass on the artwork shows a visible diagonal reflection highlight — more prominent against the dark background.',
+  },
+
+  // --- 5 lifestyle room presets ---
+  // AI generates the full room scene around the framed artwork via postPass.
+  'modern-living-room': {
+    bgColor: '#ddd5c5',
+    description: 'modern Scandinavian living room, light warm-white walls, natural daylight',
+    aiPrompt:
+      'Transform the setting into a modern Scandinavian living room. ' +
+      'Light warm-white walls, natural oak wood flooring partially visible at the bottom. ' +
+      'A minimal linen sofa or side table partially visible at one edge of frame. ' +
+      'Soft natural daylight from a large window to one side. Clean and uncluttered. ' +
+      'The framed artwork hangs on the wall with a realistic drop shadow and glass reflection.',
+  },
+  'modern-bedroom': {
+    bgColor: '#e0dbd3',
+    description: 'calm modern bedroom, white walls, neutral linen, warm ambient light',
+    aiPrompt:
+      'Transform the setting into a calm modern bedroom. ' +
+      'Soft white or very light grey walls. A neatly made bed with neutral linen duvet visible below the artwork. ' +
+      'A simple bedside table or warm lamp partially visible to one side. ' +
+      'Warm, soft ambient evening light — relaxed, not bright. Serene and minimal. ' +
+      'The framed artwork hangs above the headboard with a realistic drop shadow and glass reflection.',
   },
   'home-office': {
     bgColor: '#ddd8d0',
-    description: 'minimal home office or study, clean desk partially visible',
+    description: 'minimal home office, light walls, wooden desk partially visible',
     aiPrompt:
       'Transform the setting into a minimal home office or study. ' +
-      'Light painted walls, a simple wooden desk or shelf partially visible at the bottom edge. ' +
-      'A small plant or book stack at one side. ' +
-      'Clean, focused, uncluttered. Soft natural daylight from a window to the side. ' +
-      'The framed artwork hangs on the wall with a soft drop shadow.',
+      'Light painted walls, a simple wooden desk or floating shelf partially visible at the bottom edge. ' +
+      'A small plant or stacked books to one side. Soft natural daylight from a window off to the side. ' +
+      'Clean, focused, uncluttered. ' +
+      'The framed artwork hangs on the wall with a realistic drop shadow and glass reflection.',
   },
   'hallway': {
     bgColor: '#ece8e2',
-    description: 'simple residential hallway or staircase landing, white walls',
+    description: 'simple residential hallway, white walls, soft ambient light',
     aiPrompt:
-      'Transform the setting into a simple residential hallway or staircase landing. ' +
-      'Plain white or light-painted walls. A hint of a staircase railing or door frame at one edge. ' +
-      'Soft ambient light — no direct sun. Calm, neutral. ' +
-      'The framed artwork is hung at eye level with a subtle drop shadow.',
+      'Transform the setting into a simple residential hallway or entrance. ' +
+      'White or very light painted walls. A hint of a door frame or baseboard at one edge. ' +
+      'Soft ambient light — calm, no direct sun. ' +
+      'The framed artwork is hung at eye level with a realistic drop shadow and subtle glass reflection.',
+  },
+  'reading-nook': {
+    bgColor: '#e8e2d8',
+    description: 'cozy reading nook or library corner, warm wood tones, soft lamp light',
+    aiPrompt:
+      'Transform the setting into a cozy reading nook or library corner. ' +
+      'Warm-toned walls — cream, warm white, or very light beige. ' +
+      'A hint of a bookshelf or wooden paneling at one side. A warm table lamp casting soft light. ' +
+      'Intimate and calm, not dark. ' +
+      'The framed artwork hangs on the wall with a warm realistic drop shadow and subtle glass reflection.',
   },
 }
 
@@ -107,6 +136,12 @@ function frameDesc(material: FrameMaterial, thicknessIn: number): string {
   if (material === 'black-paint') return `${thick} matte black painted wood frame`
   if (material === 'white-paint') return `${thick} white painted wood frame`
   return `${thick} ${material} wood frame with natural grain`
+}
+
+// Returns the filesystem path for a pre-generated scene background PNG.
+// The file may or may not exist — caller should check with existsSync.
+export function backgroundPath(scene: string): string {
+  return join(__dirname, '../assets/scene-backgrounds', `${scene}.png`)
 }
 
 export function buildSceneHint(opts: FrameOptions): string {
