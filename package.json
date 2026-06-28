@@ -23,7 +23,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "generate-templates": "tsx scripts/generate-templates.ts",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "pnpm run build"
   },
   "dependencies": {
     "commander": "^12.0.0",
