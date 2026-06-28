@@ -24,6 +24,10 @@ export type ScenePreset =
   | 'warm-living-room'
   | 'concrete-loft'
   | 'natural-light'
+  | 'textured-white-wall'
+  | 'white-brick-wall'
+  | 'modern-living-room'
+  | 'modern-bedroom'
 
 export interface FrameOptions {
   artworkWidthIn: number
