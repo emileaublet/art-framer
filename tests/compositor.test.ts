@@ -127,11 +127,22 @@ describe('frame shading (flat perspective)', () => {
     expect(brightness(edge)).toBeLessThan(brightness(center))
   })
 
-  it('shading does not apply when angleDeg > 0', async () => {
+  it('angled frame (angleDeg > 0) uses flat frame color, not shaded', async () => {
     const artwork = await makeColorPng(400, 560, 128, 128, 128)
-    const angledOpts = { ...baseOpts, angleDeg: 15 }
-    // Should not throw — angled frames just use flat color
-    const result = await composite(artwork, angledOpts)
-    expect(await sharp(result).metadata()).toMatchObject({ format: 'png' })
+    // For flat perspective: top strip is LIGHTER (brightness 1.18×)
+    // For angled: frame pixels use flat base color — should NOT be as bright as flat top strip
+    const flatResult   = await composite(artwork, { ...baseOpts, angleDeg: 0,  frame: { ...baseOpts.frame, material: 'oak' } })
+    const angledResult = await composite(artwork, { ...baseOpts, angleDeg: 15, frame: { ...baseOpts.frame, material: 'oak' } })
+    const layout = computeLayout(baseOpts, '#f5f5f5')
+    const { frameRect, matRect } = layout
+    // Sample center of top frame strip (always a frame pixel in flat perspective)
+    const x = Math.round(frameRect.x + frameRect.w / 2)
+    const y = Math.round(frameRect.y + (matRect.y - frameRect.y) / 2)
+    const flatPx   = await samplePixel(flatResult,   x, y)
+    const angledPx = await samplePixel(angledResult, x, y)
+    // Flat top-strip pixels are brighter due to shading (1.18×); angled uses flat color
+    // So flatPx should be noticeably brighter than angledPx
+    const brightness = (p: [number,number,number]) => p[0] + p[1] + p[2]
+    expect(brightness(flatPx)).toBeGreaterThan(brightness(angledPx))
   })
 })

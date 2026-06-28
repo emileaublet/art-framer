@@ -110,7 +110,7 @@ function paintFrameFlat(
   const [r, g, b] = base
 
   // 1px outer highlight
-  if (dOuter <= FRAME_OUTER_HIGHLIGHT_PX) {
+  if (dOuter < FRAME_OUTER_HIGHLIGHT_PX) {
     return [Math.min(255, r + 40), Math.min(255, g + 40), Math.min(255, b + 40)]
   }
 
