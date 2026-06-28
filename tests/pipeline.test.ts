@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest'
 import { frameArtwork } from '../src/pipeline.js'
 import type { AiProvider } from '../src/types.js'
 import { ProviderError } from '../src/types.js'
-import { writeFileSync, existsSync, unlinkSync } from 'node:fs'
+import { existsSync, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
 import sharp from 'sharp'
 
