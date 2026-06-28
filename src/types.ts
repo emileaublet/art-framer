@@ -3,10 +3,35 @@ export interface AiProvider {
   postPass(composite: Buffer, sceneHint: string): Promise<Buffer>
 }
 
-export type FrameName = 'thin-black' | 'classic-wood' | 'ornate-gold'
+export type WoodEssence = 'oak' | 'walnut' | 'cherry' | 'maple' | 'ash' | 'pine'
+export type FrameMaterial = WoodEssence | 'black-paint' | 'white-paint'
+
+export interface FrameSpec {
+  material: FrameMaterial
+  thicknessIn: number
+  depthIn: number
+}
+
+export interface MatSpec {
+  widthIn: number
+  depthIn?: number   // mat board thickness in inches (informational — used in AI prompt only)
+  color: string      // 'white' | 'eggshell' | '#rrggbb'
+}
+
+export type ScenePreset =
+  | 'white-gallery'
+  | 'dark-moody'
+  | 'warm-living-room'
+  | 'concrete-loft'
+  | 'natural-light'
 
 export interface FrameOptions {
-  frame: FrameName
+  artworkWidthIn: number
+  artworkHeightIn: number
+  frame: FrameSpec
+  mat: MatSpec
+  scene: ScenePreset | string
+  angleDeg: number
   provider: AiProvider
   output: string
 }
@@ -19,12 +44,6 @@ export type Quad = [
   [number, number],
 ]
 
-export interface SceneConfig {
-  quad: Quad
-  ambientLight: string
-  hint: string
-}
-
 export class CompositorError extends Error {
   constructor(message: string, options?: ErrorOptions) {
     super(message, options)
@@ -36,12 +55,5 @@ export class ProviderError extends Error {
   constructor(message: string, options?: ErrorOptions) {
     super(message, options)
     this.name = 'ProviderError'
-  }
-}
-
-export class TemplateNotFoundError extends Error {
-  constructor(frame: string) {
-    super(`Frame template not found: "${frame}"`)
-    this.name = 'TemplateNotFoundError'
   }
 }
