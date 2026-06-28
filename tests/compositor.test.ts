@@ -1,38 +1,91 @@
 import { describe, it, expect } from 'vitest'
 import { composite } from '../src/compositor.js'
+import { CompositorError } from '../src/types.js'
+import type { FrameOptions } from '../src/types.js'
 import sharp from 'sharp'
 
-async function makeRedPng(width = 200, height = 150): Promise<Buffer> {
+async function makeColorPng(width: number, height: number, r: number, g: number, b: number): Promise<Buffer> {
   return sharp({
-    create: { width, height, channels: 4, background: { r: 255, g: 0, b: 0, alpha: 1 } },
+    create: { width, height, channels: 4, background: { r, g, b, alpha: 1 } },
   }).png().toBuffer()
 }
 
-describe('composite', () => {
-  it('returns a Buffer', async () => {
-    const artwork = await makeRedPng()
-    const result = await composite(artwork, 'thin-black')
-    expect(result).toBeInstanceOf(Buffer)
-    expect(result.length).toBeGreaterThan(0)
-  })
+const baseOpts: FrameOptions = {
+  artworkWidthIn: 10,
+  artworkHeightIn: 14,
+  frame: { material: 'oak', thicknessIn: 1.5, depthIn: 0.75 },
+  mat: { widthIn: 2, color: 'white' },
+  scene: 'white-gallery',
+  angleDeg: 0,
+  provider: { prePass: async (b) => b, postPass: async (b) => b },
+  output: 'out.png',
+}
 
-  it('output is a valid PNG with correct dimensions', async () => {
-    const artwork = await makeRedPng()
-    const result = await composite(artwork, 'thin-black')
+describe('composite', () => {
+  it('returns a valid PNG Buffer', async () => {
+    const result = await composite(await makeColorPng(400, 560, 255, 0, 0), baseOpts)
     const meta = await sharp(result).metadata()
     expect(meta.format).toBe('png')
-    expect(meta.width).toBe(1200)
-    expect(meta.height).toBe(900)
+    expect(meta.width).toBeGreaterThan(0)
+    expect(meta.height).toBeGreaterThan(0)
   })
 
-  it('output differs from template (artwork was composited)', async () => {
-    const artwork = await makeRedPng()
-    const result = await composite(artwork, 'thin-black')
-    // read center pixel — should be reddish (artwork region)
+  it('output dimensions are within 2400px on longest side', async () => {
+    const result = await composite(await makeColorPng(400, 560, 255, 0, 0), baseOpts)
+    const meta = await sharp(result).metadata()
+    expect(Math.max(meta.width!, meta.height!)).toBeLessThanOrEqual(2400)
+  })
+
+  it('artwork aspect ratio is preserved (center region is artwork color)', async () => {
+    // Red artwork — center of output should be red
+    const result = await composite(await makeColorPng(400, 560, 200, 0, 0), baseOpts)
+    const { width, height } = await sharp(result).metadata()
     const { data } = await sharp(result)
-      .extract({ left: 590, top: 440, width: 1, height: 1 })
-      .raw()
-      .toBuffer({ resolveWithObject: true })
-    expect(data[0]).toBeGreaterThan(150) // R channel
+      .extract({ left: Math.round(width! / 2) - 1, top: Math.round(height! / 2) - 1, width: 1, height: 1 })
+      .raw().toBuffer({ resolveWithObject: true })
+    expect(data[0]).toBeGreaterThan(150)  // R channel
+    expect(data[1]).toBeLessThan(50)      // G channel low
+  })
+
+  it('works with walnut frame and dark-moody scene', async () => {
+    const result = await composite(await makeColorPng(300, 400, 100, 150, 200), {
+      ...baseOpts,
+      frame: { material: 'walnut', thicknessIn: 2, depthIn: 1 },
+      mat: { widthIn: 1.5, color: 'eggshell' },
+      scene: 'dark-moody',
+    })
+    expect(await sharp(result).metadata()).toMatchObject({ format: 'png' })
+  })
+
+  it('works with black-paint frame and custom scene description', async () => {
+    const result = await composite(await makeColorPng(300, 400, 80, 120, 200), {
+      ...baseOpts,
+      frame: { material: 'black-paint', thicknessIn: 1, depthIn: 0.5 },
+      scene: 'exposed brick wall with afternoon light',
+    })
+    expect(await sharp(result).metadata()).toMatchObject({ format: 'png' })
+  })
+
+  it('works with angle=20', async () => {
+    const result = await composite(await makeColorPng(400, 560, 0, 200, 100), {
+      ...baseOpts,
+      angleDeg: 20,
+    })
+    expect(await sharp(result).metadata()).toMatchObject({ format: 'png' })
+  })
+
+  it('throws CompositorError for angleDeg > 45', async () => {
+    await expect(composite(await makeColorPng(400, 560, 255, 0, 0), { ...baseOpts, angleDeg: 50 }))
+      .rejects.toBeInstanceOf(CompositorError)
+  })
+
+  it('wider artwork produces wider output', async () => {
+    const portrait = await composite(await makeColorPng(400, 560, 255, 0, 0), baseOpts)  // 10"×14"
+    const landscape = await composite(await makeColorPng(560, 400, 255, 0, 0), {
+      ...baseOpts, artworkWidthIn: 20, artworkHeightIn: 14,
+    })
+    expect((await sharp(landscape).metadata()).width).toBeGreaterThan(
+      (await sharp(portrait).metadata()).width!,
+    )
   })
 })

@@ -1,66 +1,123 @@
 import sharp from 'sharp'
-import { join } from 'node:path'
 import { warpArtwork } from './warp.js'
-import { loadScene, getTemplatePath } from './templates.js'
-import type { FrameName } from './types.js'
+import { resolveScene } from './scenes.js'
+import { computeLayout } from './geometry.js'
+import type { FrameOptions, Quad } from './types.js'
 import { CompositorError } from './types.js'
 
-export async function composite(artworkBuffer: Buffer, frame: FrameName): Promise<Buffer> {
-  const scene = loadScene(frame)
-  const templateDir = getTemplatePath(frame)
+const FRAME_COLORS: Record<string, string> = {
+  'black-paint': '#1a1a1a',
+  'white-paint': '#f0f0f0',
+  oak:           '#c8a96e',
+  walnut:        '#5c3d1e',
+  cherry:        '#a0522d',
+  maple:         '#d4a96a',
+  ash:           '#b8a898',
+  pine:          '#d4b896',
+}
 
-  const templatePath = join(templateDir, 'template.png')
-  const maskPath = join(templateDir, 'mask.png')
+function hexToRgb(hex: string): [number, number, number] {
+  const h = hex.replace('#', '')
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]
+}
 
-  let templateMeta: sharp.Metadata
-  let artworkMeta: sharp.Metadata
-  let artworkRaw: Buffer
-  let templateBuf: Buffer
+function resolveMatHex(color: string): string {
+  if (color === 'white') return '#ffffff'
+  if (color === 'eggshell') return '#f4f0e8'
+  return color
+}
 
+// Cross-product point-in-quad test for clockwise quad [TL, TR, BR, BL].
+// A pixel is inside when all 4 edge cross products are >= 0.
+function pointInQuad(x: number, y: number, quad: Quad): boolean {
+  for (let i = 0; i < 4; i++) {
+    const [ax, ay] = quad[i]
+    const [bx, by] = quad[(i + 1) % 4]
+    if ((bx - ax) * (y - ay) - (by - ay) * (x - ax) < 0) return false
+  }
+  return true
+}
+
+export async function composite(artworkBuffer: Buffer, opts: FrameOptions): Promise<Buffer> {
+  const { bgColor } = resolveScene(opts.scene)
+
+  let layout
   try {
-    templateMeta = await sharp(templatePath).metadata()
-    artworkMeta = await sharp(artworkBuffer).metadata()
-    artworkRaw = await sharp(artworkBuffer).ensureAlpha().raw().toBuffer()
-    templateBuf = await sharp(templatePath).png().toBuffer()
+    layout = computeLayout(opts, bgColor)
   } catch (err) {
-    throw new CompositorError('Failed to load template or artwork assets', { cause: err })
+    throw new CompositorError('Layout computation failed', { cause: err })
   }
 
-  const frameWidth = templateMeta.width!
-  const frameHeight = templateMeta.height!
-  const artWidth = artworkMeta.width!
-  const artHeight = artworkMeta.height!
+  const { canvasW, canvasH, artRect, matRect, frameRect, wallColor, artQuad } = layout
 
-  const warpedRaw = warpArtwork(artworkRaw, artWidth, artHeight, scene.quad, frameWidth, frameHeight)
+  // Decode and scale artwork to exact artRect dimensions (user-specified aspect ratio)
+  let artworkRaw: Buffer
+  try {
+    artworkRaw = await sharp(artworkBuffer)
+      .resize(artRect.w, artRect.h, { fit: 'fill' })
+      .ensureAlpha()
+      .raw()
+      .toBuffer()
+  } catch (err) {
+    throw new CompositorError('Failed to decode or resize artwork', { cause: err })
+  }
 
-  const warpedBuf = await sharp(warpedRaw, {
-    raw: { width: frameWidth, height: frameHeight, channels: 4 },
-  }).png().toBuffer()
+  // Warp artwork into full canvas space using artQuad as destination
+  const warpedRaw = warpArtwork(artworkRaw, artRect.w, artRect.h, artQuad, canvasW, canvasH)
 
-  // Read mask and apply: use mask to punch artwork into template
-  const maskRaw = await sharp(maskPath)
-    .grayscale()
-    .raw()
-    .toBuffer()
+  const wallRgb   = hexToRgb(wallColor)
+  const frameRgb  = hexToRgb(FRAME_COLORS[opts.frame.material] ?? '#888888')
+  const matRgb    = hexToRgb(resolveMatHex(opts.mat.color))
 
-  // Build output: for each pixel, blend warped artwork and template using mask
-  const templateRaw = await sharp(templateBuf).ensureAlpha().raw().toBuffer()
-  const warpedRawFinal = await sharp(warpedBuf).ensureAlpha().raw().toBuffer()
+  const canvas = Buffer.alloc(canvasW * canvasH * 4)
 
-  const outBuf = Buffer.alloc(frameWidth * frameHeight * 4)
-  for (let i = 0; i < frameWidth * frameHeight; i++) {
-    const m = maskRaw[i] / 255
-    for (let c = 0; c < 4; c++) {
-      const tw = i * 4 + c
-      outBuf[tw] = Math.round(warpedRawFinal[tw] * m + templateRaw[tw] * (1 - m))
+  const isFlat = opts.angleDeg === 0
+
+  for (let py = 0; py < canvasH; py++) {
+    for (let px = 0; px < canvasW; px++) {
+      const i = (py * canvasW + px) * 4
+      let rgb: [number, number, number]
+
+      if (
+        px >= frameRect.x && px < frameRect.x + frameRect.w &&
+        py >= frameRect.y && py < frameRect.y + frameRect.h
+      ) {
+        if (
+          px >= matRect.x && px < matRect.x + matRect.w &&
+          py >= matRect.y && py < matRect.y + matRect.h
+        ) {
+          const inArt = isFlat
+            ? px >= artRect.x && px < artRect.x + artRect.w &&
+              py >= artRect.y && py < artRect.y + artRect.h
+            : pointInQuad(px, py, artQuad)
+
+          if (inArt) {
+            canvas[i]     = warpedRaw[i]
+            canvas[i + 1] = warpedRaw[i + 1]
+            canvas[i + 2] = warpedRaw[i + 2]
+            canvas[i + 3] = 255
+            continue
+          }
+          rgb = matRgb
+        } else {
+          rgb = frameRgb
+        }
+      } else {
+        rgb = wallRgb
+      }
+
+      canvas[i]     = rgb[0]
+      canvas[i + 1] = rgb[1]
+      canvas[i + 2] = rgb[2]
+      canvas[i + 3] = 255
     }
   }
 
   try {
-    return await sharp(outBuf, {
-      raw: { width: frameWidth, height: frameHeight, channels: 4 },
-    }).png().toBuffer()
+    return await sharp(canvas, { raw: { width: canvasW, height: canvasH, channels: 4 } })
+      .png()
+      .toBuffer()
   } catch (err) {
-    throw new CompositorError('Failed to encode composite image', { cause: err })
+    throw new CompositorError('Failed to encode composite', { cause: err })
   }
 }
