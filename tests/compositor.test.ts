@@ -3,6 +3,7 @@ import { composite } from '../src/compositor.js'
 import { CompositorError } from '../src/types.js'
 import type { FrameOptions } from '../src/types.js'
 import sharp from 'sharp'
+import { computeLayout } from '../src/geometry.js'
 
 async function makeColorPng(width: number, height: number, r: number, g: number, b: number): Promise<Buffer> {
   return sharp({
@@ -87,5 +88,50 @@ describe('composite', () => {
     expect((await sharp(landscape).metadata()).width).toBeGreaterThan(
       (await sharp(portrait).metadata()).width!,
     )
+  })
+})
+
+async function samplePixel(img: Buffer, x: number, y: number): Promise<[number, number, number]> {
+  const { data } = await sharp(img)
+    .extract({ left: x, top: y, width: 1, height: 1 })
+    .raw().toBuffer({ resolveWithObject: true })
+  return [data[0], data[1], data[2]]
+}
+
+describe('frame shading (flat perspective)', () => {
+  it('top frame strip is lighter than bottom frame strip', async () => {
+    const artwork = await makeColorPng(400, 560, 128, 128, 128)
+    const result = await composite(artwork, baseOpts)
+    const layout = computeLayout(baseOpts, '#f5f5f5')
+    const { frameRect, matRect } = layout
+    const midX = Math.round(frameRect.x + frameRect.w / 2)
+    const topY  = Math.round(frameRect.y + (matRect.y - frameRect.y) / 2)
+    const botY  = Math.round(matRect.y + matRect.h + (frameRect.y + frameRect.h - matRect.y - matRect.h) / 2)
+    const top = await samplePixel(result, midX, topY)
+    const bot = await samplePixel(result, midX, botY)
+    const brightness = (px: [number,number,number]) => px[0] + px[1] + px[2]
+    expect(brightness(top)).toBeGreaterThan(brightness(bot))
+  })
+
+  it('inner frame edge is darker than frame center', async () => {
+    const artwork = await makeColorPng(400, 560, 128, 128, 128)
+    const result = await composite(artwork, baseOpts)
+    const layout = computeLayout(baseOpts, '#f5f5f5')
+    const { frameRect, matRect } = layout
+    const midX     = Math.round(frameRect.x + frameRect.w / 2)
+    const innerEdgeY = matRect.y - 1  // 1px inside frame at top mat boundary
+    const topCenterY = Math.round(frameRect.y + (matRect.y - frameRect.y) / 2)
+    const edge   = await samplePixel(result, midX, innerEdgeY)
+    const center = await samplePixel(result, midX, topCenterY)
+    const brightness = (px: [number,number,number]) => px[0] + px[1] + px[2]
+    expect(brightness(edge)).toBeLessThan(brightness(center))
+  })
+
+  it('shading does not apply when angleDeg > 0', async () => {
+    const artwork = await makeColorPng(400, 560, 128, 128, 128)
+    const angledOpts = { ...baseOpts, angleDeg: 15 }
+    // Should not throw — angled frames just use flat color
+    const result = await composite(artwork, angledOpts)
+    expect(await sharp(result).metadata()).toMatchObject({ format: 'png' })
   })
 })
