@@ -46,8 +46,12 @@ const MATERIALS: FrameMaterial[] = ['black-paint', 'walnut', 'oak']
 const SCENES: ScenePreset[] = [
   'textured-white-wall',
   'white-brick-wall',
+  'sage-painted-wall',
+  'warm-plaster-wall',
   'modern-living-room',
   'modern-bedroom',
+  'home-office',
+  'hallway',
 ]
 
 async function run() {

@@ -57,6 +57,42 @@ export const SCENE_PRESETS: Record<ScenePreset, SceneResolved> = {
       'Serene and minimal, no clutter. ' +
       'The framed artwork hangs on the wall above the headboard area with a soft realistic shadow.',
   },
+  'sage-painted-wall': {
+    bgColor: '#b8c4b0',
+    description: 'muted sage green painted wall, soft natural light',
+    aiPrompt:
+      'Replace the background with a smooth matte sage green painted wall — a muted, desaturated grey-green like a Farrow & Ball paint. ' +
+      'Very subtle surface texture from the paint. Soft, diffused natural light. ' +
+      'The framed artwork casts a gentle drop shadow on the sage wall.',
+  },
+  'warm-plaster-wall': {
+    bgColor: '#d9c9b4',
+    description: 'warm off-white or pale terracotta plaster wall, Mediterranean feel',
+    aiPrompt:
+      'Replace the background with a warm off-white or pale terracotta-tinted plaster wall. ' +
+      'The surface has subtle natural texture — slightly uneven like old European plaster, not perfectly smooth. ' +
+      'Warm side lighting from the left, gentle shadows. ' +
+      'The framed artwork casts a soft realistic shadow on the warm plaster surface.',
+  },
+  'home-office': {
+    bgColor: '#ddd8d0',
+    description: 'minimal home office or study, clean desk partially visible',
+    aiPrompt:
+      'Transform the setting into a minimal home office or study. ' +
+      'Light painted walls, a simple wooden desk or shelf partially visible at the bottom edge. ' +
+      'A small plant or book stack at one side. ' +
+      'Clean, focused, uncluttered. Soft natural daylight from a window to the side. ' +
+      'The framed artwork hangs on the wall with a soft drop shadow.',
+  },
+  'hallway': {
+    bgColor: '#ece8e2',
+    description: 'simple residential hallway or staircase landing, white walls',
+    aiPrompt:
+      'Transform the setting into a simple residential hallway or staircase landing. ' +
+      'Plain white or light-painted walls. A hint of a staircase railing or door frame at one edge. ' +
+      'Soft ambient light — no direct sun. Calm, neutral. ' +
+      'The framed artwork is hung at eye level with a subtle drop shadow.',
+  },
 }
 
 const PRESET_KEYS = new Set<string>(Object.keys(SCENE_PRESETS))
