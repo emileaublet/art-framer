@@ -1,7 +1,7 @@
 import { frameArtwork } from '../src/pipeline.js'
 import type { AiProvider, FrameOptions, FrameMaterial, ScenePreset } from '../src/types.js'
 import { mkdirSync } from 'node:fs'
-import { join, dirname } from 'node:path'
+import { join, dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -9,9 +9,16 @@ const FIXTURES = join(__dirname, '../tests/fixtures')
 const OUTPUT = join(__dirname, '../tests/output/examples')
 mkdirSync(OUTPUT, { recursive: true })
 
-const mockProvider: AiProvider = {
-  async prePass(buf) { return buf },
-  async postPass(buf) { return buf },
+// Use real Replicate provider when REPLICATE=1 env var is set
+let provider: AiProvider
+if (process.env.REPLICATE === '1') {
+  const providerPath = resolve(__dirname, '../providers/replicate-provider.js')
+  const mod = await import(providerPath)
+  provider = mod.default
+  console.log('Using Replicate provider (AI lifestyle scenes)')
+} else {
+  provider = { prePass: async (b) => b, postPass: async (b) => b }
+  console.log('Using mock provider (run with REPLICATE=1 for AI scenes)')
 }
 
 interface ArtworkSpec {
@@ -52,7 +59,7 @@ async function run() {
             mat:   { widthIn: 2, color: 'white' },
             scene,
             angleDeg: angle,
-            provider: mockProvider,
+            provider,
             output,
           }
           jobs.push(

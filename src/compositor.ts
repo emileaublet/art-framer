@@ -48,9 +48,9 @@ export async function composite(artworkBuffer: Buffer, opts: FrameOptions): Prom
     throw new CompositorError('Layout computation failed', { cause: err })
   }
 
-  const { canvasW, canvasH, artRect, matRect, frameRect, wallColor, artQuad } = layout
+  const { canvasW, canvasH, artRect, wallColor, frameQuad, matQuad, artQuad } = layout
 
-  // Decode and scale artwork to exact artRect dimensions (user-specified aspect ratio)
+  // Decode and scale artwork to artRect dimensions (source buffer for warp)
   let artworkRaw: Buffer
   try {
     artworkRaw = await sharp(artworkBuffer)
@@ -71,45 +71,31 @@ export async function composite(artworkBuffer: Buffer, opts: FrameOptions): Prom
 
   const canvas = Buffer.alloc(canvasW * canvasH * 4)
 
-  const isFlat = opts.angleDeg === 0
-
   for (let py = 0; py < canvasH; py++) {
     for (let px = 0; px < canvasW; px++) {
       const i = (py * canvasW + px) * 4
-      let rgb: [number, number, number]
 
-      if (
-        px >= frameRect.x && px < frameRect.x + frameRect.w &&
-        py >= frameRect.y && py < frameRect.y + frameRect.h
-      ) {
-        if (
-          px >= matRect.x && px < matRect.x + matRect.w &&
-          py >= matRect.y && py < matRect.y + matRect.h
-        ) {
-          const inArt = isFlat
-            ? px >= artRect.x && px < artRect.x + artRect.w &&
-              py >= artRect.y && py < artRect.y + artRect.h
-            : pointInQuad(px, py, artQuad)
-
-          if (inArt) {
-            canvas[i]     = warpedRaw[i]
-            canvas[i + 1] = warpedRaw[i + 1]
-            canvas[i + 2] = warpedRaw[i + 2]
-            canvas[i + 3] = 255
-            continue
-          }
-          rgb = matRgb
-        } else {
-          rgb = frameRgb
-        }
+      if (pointInQuad(px, py, artQuad)) {
+        canvas[i]     = warpedRaw[i]
+        canvas[i + 1] = warpedRaw[i + 1]
+        canvas[i + 2] = warpedRaw[i + 2]
+        canvas[i + 3] = 255
+      } else if (pointInQuad(px, py, matQuad)) {
+        canvas[i]     = matRgb[0]
+        canvas[i + 1] = matRgb[1]
+        canvas[i + 2] = matRgb[2]
+        canvas[i + 3] = 255
+      } else if (pointInQuad(px, py, frameQuad)) {
+        canvas[i]     = frameRgb[0]
+        canvas[i + 1] = frameRgb[1]
+        canvas[i + 2] = frameRgb[2]
+        canvas[i + 3] = 255
       } else {
-        rgb = wallRgb
+        canvas[i]     = wallRgb[0]
+        canvas[i + 1] = wallRgb[1]
+        canvas[i + 2] = wallRgb[2]
+        canvas[i + 3] = 255
       }
-
-      canvas[i]     = rgb[0]
-      canvas[i + 1] = rgb[1]
-      canvas[i + 2] = rgb[2]
-      canvas[i + 3] = 255
     }
   }
 
