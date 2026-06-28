@@ -146,3 +146,59 @@ describe('frame shading (flat perspective)', () => {
     expect(brightness(flatPx)).toBeGreaterThan(brightness(angledPx))
   })
 })
+
+describe('wood grain', () => {
+  it('oak frame has pixel variation along a vertical line through the frame', async () => {
+    // Sample 5 vertically adjacent pixels in the left frame strip — they should not all be identical
+    const artwork = await makeColorPng(400, 560, 128, 128, 128)
+    const result = await composite(artwork, { ...baseOpts, frame: { ...baseOpts.frame, material: 'oak' } })
+    const layout = computeLayout({ ...baseOpts, frame: { ...baseOpts.frame, material: 'oak' } }, '#f5f5f5')
+    const { frameRect, matRect } = layout
+    const x = Math.round(frameRect.x + (matRect.x - frameRect.x) / 2)  // center of left strip
+    const pixels = await Promise.all(
+      [0, 5, 10, 15, 20].map(dy =>
+        samplePixel(result, x, Math.round(frameRect.y + frameRect.h / 2) + dy)
+      )
+    )
+    const brightnesses = pixels.map(p => p[0] + p[1] + p[2])
+    const maxB = Math.max(...brightnesses)
+    const minB = Math.min(...brightnesses)
+    expect(maxB - minB).toBeGreaterThan(5)  // at least some variation
+  })
+
+  it('black-paint frame has no grain variation', async () => {
+    const artwork = await makeColorPng(400, 560, 128, 128, 128)
+    const result = await composite(artwork, { ...baseOpts, frame: { ...baseOpts.frame, material: 'black-paint' } })
+    const layout = computeLayout(baseOpts, '#f5f5f5')
+    const { frameRect, matRect } = layout
+    const x = Math.round(frameRect.x + (matRect.x - frameRect.x) / 2)
+    const pixels = await Promise.all(
+      [0, 5, 10].map(dy =>
+        samplePixel(result, x, Math.round(frameRect.y + frameRect.h / 2) + dy)
+      )
+    )
+    const brightnesses = pixels.map(p => p[0] + p[1] + p[2])
+    const maxB = Math.max(...brightnesses)
+    const minB = Math.min(...brightnesses)
+    // No grain: variation should be small (shading only, not grain bumps)
+    expect(maxB - minB).toBeLessThan(30)
+  })
+})
+
+describe('mat bevel', () => {
+  it('mat pixel at art boundary is lighter than mat center pixel (top bevel)', async () => {
+    const artwork = await makeColorPng(400, 560, 0, 0, 255)  // blue artwork
+    // Use eggshell mat (not white) so the lit bevel (+45) is not clamped at 255
+    const eeOpts = { ...baseOpts, mat: { ...baseOpts.mat, color: 'eggshell' } }
+    const result = await composite(artwork, eeOpts)
+    const layout = computeLayout(eeOpts, '#f5f5f5')
+    const { artRect, matRect } = layout
+    const midX = Math.round(artRect.x + artRect.w / 2)
+    // 1px above artRect top (just inside mat, near art boundary) — should be brighter (lit bevel)
+    const bevelPx  = await samplePixel(result, midX, artRect.y - 1)
+    // Center of top mat strip — plain mat color
+    const centerPx = await samplePixel(result, midX, Math.round(matRect.y + (artRect.y - matRect.y) / 2))
+    const brightness = (px: [number,number,number]) => px[0] + px[1] + px[2]
+    expect(brightness(bevelPx)).toBeGreaterThan(brightness(centerPx))
+  })
+})

@@ -2,7 +2,7 @@ import sharp from 'sharp'
 import { warpArtwork } from './warp.js'
 import { resolveScene } from './scenes.js'
 import { computeLayout } from './geometry.js'
-import type { FrameOptions, Quad } from './types.js'
+import type { FrameOptions, Quad, FrameMaterial } from './types.js'
 import { CompositorError } from './types.js'
 import type { Rect } from './geometry.js'
 
@@ -84,12 +84,23 @@ const FRAME_OUTER_HIGHLIGHT_PX = 1
 const FRAME_INNER_SHADOW_PX    = 3
 const FRAME_SIDE_BRIGHTNESS    = { top: 1.18, left: 1.08, bottom: 0.80, right: 0.88 } as const
 
+// Returns a signed pixel offset for wood grain at (px, py). Deterministic (no randomness).
+// Fine grain frequency ~1.1 cycles/px, coarse ~0.3 cycles/px, with slight horizontal waviness.
+function woodGrain(px: number, py: number, material: FrameMaterial): number {
+  if (material !== 'oak' && material !== 'maple') return 0
+  const fine   = Math.sin(py * 1.1  + Math.sin(px * 0.04) * 4)
+  const coarse = Math.sin(py * 0.30 + Math.sin(px * 0.015) * 3)
+  const raw    = fine * 0.6 + coarse * 0.4
+  return raw * (material === 'oak' ? 18 : 10)
+}
+
 function paintFrameFlat(
   px: number,
   py: number,
   frameRect: Rect,
   matRect: Rect,
   base: [number, number, number],
+  material: FrameMaterial,
 ): [number, number, number] {
   // Distances to outer frame edges
   const dTop    = py - frameRect.y
@@ -121,7 +132,7 @@ function paintFrameFlat(
     return [Math.round(r * m), Math.round(g * m), Math.round(b * m)]
   }
 
-  // Dominant side: nearest outer edge determines brightness
+  // Dominant side brightness + optional wood grain
   const minOuter = Math.min(dTop, dLeft, dBottom, dRight)
   let mult: number
   if      (minOuter === dTop)    mult = FRAME_SIDE_BRIGHTNESS.top
@@ -129,10 +140,11 @@ function paintFrameFlat(
   else if (minOuter === dBottom) mult = FRAME_SIDE_BRIGHTNESS.bottom
   else                           mult = FRAME_SIDE_BRIGHTNESS.right
 
+  const grain = woodGrain(px, py, material)
   return [
-    Math.min(255, Math.max(0, Math.round(r * mult))),
-    Math.min(255, Math.max(0, Math.round(g * mult))),
-    Math.min(255, Math.max(0, Math.round(b * mult))),
+    Math.min(255, Math.max(0, Math.round(r * mult + grain))),
+    Math.min(255, Math.max(0, Math.round(g * mult + grain * 0.8))),
+    Math.min(255, Math.max(0, Math.round(b * mult + grain * 0.3))),
   ]
 }
 
@@ -184,14 +196,48 @@ export async function composite(artworkBuffer: Buffer, opts: FrameOptions): Prom
         canvas[i + 2] = Math.min(255, Math.round(warpedRaw[i + 2] + (255 - warpedRaw[i + 2]) * glassT))
         canvas[i + 3] = 255
       } else if (pointInQuad(px, py, matQuad)) {
-        canvas[i]     = matRgb[0]
-        canvas[i + 1] = matRgb[1]
-        canvas[i + 2] = matRgb[2]
-        canvas[i + 3] = 255
+        if (opts.angleDeg === 0) {
+          // Mat bevel: thin lit/shadow strips at the inner mat edge (art boundary)
+          const MAT_BEVEL_PX = 3
+          const toArtLeft   = Math.max(0, artRect.x - px)
+          const toArtTop    = Math.max(0, artRect.y - py)
+          const toArtRight  = Math.max(0, px - (artRect.x + artRect.w - 1))
+          const toArtBottom = Math.max(0, py - (artRect.y + artRect.h - 1))
+          const bevelDs = [toArtLeft, toArtTop, toArtRight, toArtBottom].filter(d => d > 0)
+          const dBevel  = bevelDs.length > 0 ? Math.min(...bevelDs) : 0
+
+          if (dBevel > 0 && dBevel <= MAT_BEVEL_PX) {
+            const t = dBevel / MAT_BEVEL_PX  // 0=boundary(strongest), 1=edge of zone
+            // Determine lit vs shadow side (light from top-left)
+            const isLit = (toArtTop > 0 && toArtTop >= toArtBottom) ||
+                          (toArtLeft > 0 && toArtLeft >= toArtRight)
+            const strength = (1 - t)
+            if (isLit) {
+              canvas[i]     = Math.min(255, matRgb[0] + Math.round(strength * 45))
+              canvas[i + 1] = Math.min(255, matRgb[1] + Math.round(strength * 45))
+              canvas[i + 2] = Math.min(255, matRgb[2] + Math.round(strength * 45))
+            } else {
+              const m = 1 - strength * 0.35
+              canvas[i]     = Math.round(matRgb[0] * m)
+              canvas[i + 1] = Math.round(matRgb[1] * m)
+              canvas[i + 2] = Math.round(matRgb[2] * m)
+            }
+          } else {
+            canvas[i]     = matRgb[0]
+            canvas[i + 1] = matRgb[1]
+            canvas[i + 2] = matRgb[2]
+          }
+          canvas[i + 3] = 255
+        } else {
+          canvas[i]     = matRgb[0]
+          canvas[i + 1] = matRgb[1]
+          canvas[i + 2] = matRgb[2]
+          canvas[i + 3] = 255
+        }
       } else if (pointInQuad(px, py, frameQuad)) {
         let fr: number, fg: number, fb: number
         if (opts.angleDeg === 0) {
-          const [cr, cg, cb] = paintFrameFlat(px, py, frameRect, matRect, frameRgb)
+          const [cr, cg, cb] = paintFrameFlat(px, py, frameRect, matRect, frameRgb, opts.frame.material)
           fr = cr; fg = cg; fb = cb
         } else {
           fr = frameRgb[0]; fg = frameRgb[1]; fb = frameRgb[2]
