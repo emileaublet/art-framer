@@ -62,14 +62,15 @@ const SCENES: Record<string, string> = {
     'Intimate and calm. Empty wall, no artwork.',
 }
 
-// flux-1.1-pro max dimension is 1440px
+// recraft-v3 portrait size (1024x1280 is a supported size)
 const OUT_WIDTH  = 1024
 const OUT_HEIGHT = 1280
+const RECRAFT_SIZE = '1024x1280'
 
 // Delay between requests to avoid rate-limit (429) on low-credit accounts
 const DELAY_MS = 12000
 
-console.log(`Generating ${Object.keys(SCENES).length} scene backgrounds via Replicate flux-1.1-pro...\n`)
+console.log(`Generating ${Object.keys(SCENES).length} scene backgrounds via Replicate recraft-v3...\n`)
 
 let done = 0, skipped = 0, failed = 0
 
@@ -83,19 +84,20 @@ for (const [scene, prompt] of Object.entries(SCENES)) {
 
   try {
     console.log(`  [generate] ${scene}...`)
-    const output = await replicate.run('black-forest-labs/flux-1.1-pro', {
+    const output = await replicate.run('recraft-ai/recraft-v3', {
       input: {
         prompt,
-        width:          OUT_WIDTH,
-        height:         OUT_HEIGHT,
+        size:           RECRAFT_SIZE,
+        style:          'realistic_image/natural_light',
         output_format:  'png',
-        output_quality: 95,
       },
     })
     // Respect rate limit between requests
     await new Promise(r => setTimeout(r, DELAY_MS))
 
-    const url = typeof output === 'string' ? output : (output as any).url?.() ?? String(output)
+    // recraft-v3 returns an array of FileOutput objects or strings
+    const raw_output = Array.isArray(output) ? output[0] : output
+    const url = typeof raw_output === 'string' ? raw_output : (raw_output as any).url?.() ?? String(raw_output)
     const resp = await fetch(url)
     const raw  = Buffer.from(await resp.arrayBuffer())
 
