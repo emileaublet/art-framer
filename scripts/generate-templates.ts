@@ -45,16 +45,25 @@ async function generateTemplate(spec: TemplateSpec): Promise<void> {
   const [[x1, y1], [x2, _y2], [_x3, y3]] = spec.quad
   const artX = x1, artY = y1, artW = x2 - x1, artH = y3 - y1
 
-  // template.png: wall background + frame border + artwork placeholder
+  // RABBET: pixels the frame lip overlaps the artwork edge. Template and mask
+  // must use the same value so the frame color shows in the rabbet zone.
+  const RABBET = 4
+
+  // template.png: wall background + frame border + artwork placeholder.
+  // Frame color extends inward by RABBET so when mask=0 there, frame shows.
   const templatePixels = Buffer.alloc(FRAME_WIDTH * FRAME_HEIGHT * 4)
   for (let y = 0; y < FRAME_HEIGHT; y++) {
     for (let x = 0; x < FRAME_WIDTH; x++) {
       const i = (y * FRAME_WIDTH + x) * 4
-      const inArtwork = x >= artX && x < artX + artW && y >= artY && y < artY + artH
-      const inFrameOuter = x >= artX - 10 && x < artX + artW + 10 && y >= artY - 10 && y < artY + artH + 10
+      // Inset artwork placeholder matches the mask exactly
+      const inArtworkPlaceholder = x >= artX + RABBET && x < artX + artW - RABBET &&
+                                   y >= artY + RABBET && y < artY + artH - RABBET
+      // Frame zone covers outer ring + rabbet inner band
+      const inFrameZone = x >= artX - 10 && x < artX + artW + 10 &&
+                          y >= artY - 10 && y < artY + artH + 10
       let color: [number, number, number]
-      if (inArtwork) color = spec.artworkColor
-      else if (inFrameOuter) color = spec.frameColor
+      if (inArtworkPlaceholder) color = spec.artworkColor
+      else if (inFrameZone) color = spec.frameColor
       else color = spec.wallColor
       templatePixels[i] = color[0]
       templatePixels[i + 1] = color[1]
@@ -66,12 +75,13 @@ async function generateTemplate(spec: TemplateSpec): Promise<void> {
     .png()
     .toFile(join(dir, 'template.png'))
 
-  // mask.png: white in artwork region, black outside (grayscale)
+  // mask.png: white in artwork region inset by RABBET pixels, black outside.
   const maskPixels = Buffer.alloc(FRAME_WIDTH * FRAME_HEIGHT)
   for (let y = 0; y < FRAME_HEIGHT; y++) {
     for (let x = 0; x < FRAME_WIDTH; x++) {
-      const inArtwork = x >= artX && x < artX + artW && y >= artY && y < artY + artH
-      maskPixels[y * FRAME_WIDTH + x] = inArtwork ? 255 : 0
+      const inMask = x >= artX + RABBET && x < artX + artW - RABBET &&
+                     y >= artY + RABBET && y < artY + artH - RABBET
+      maskPixels[y * FRAME_WIDTH + x] = inMask ? 255 : 0
     }
   }
   await sharp(maskPixels, { raw: { width: FRAME_WIDTH, height: FRAME_HEIGHT, channels: 1 } })
