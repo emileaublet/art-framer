@@ -5,41 +5,51 @@ import { join } from 'node:path'
 import sharp from 'sharp'
 
 const OUTPUT = join(import.meta.dirname, 'cli-output.png')
-const ARTWORK = join(import.meta.dirname, 'cli-artwork.png')
+const ARTWORK = join(import.meta.dirname, 'fixtures', 'mona-lisa.jpg')
 const MOCK_PROVIDER = join(import.meta.dirname, 'mock-provider.mjs')
 
-afterEach(() => {
-  if (existsSync(OUTPUT)) unlinkSync(OUTPUT)
-})
-
-// Write a minimal mock provider module once
 writeFileSync(MOCK_PROVIDER, `export default { prePass: async b => b, postPass: async b => b }`)
 
-async function makeArtwork(): Promise<void> {
-  if (existsSync(ARTWORK)) return
-  await sharp({
-    create: { width: 100, height: 100, channels: 4, background: { r: 255, g: 165, b: 0, alpha: 1 } },
-  }).png().toFile(ARTWORK)
-}
+afterEach(() => { if (existsSync(OUTPUT)) unlinkSync(OUTPUT) })
+
+const BASE_FLAGS = [
+  '--width 16 --height 24',
+  '--material oak --frame-thickness 1.5 --frame-depth 0.75',
+  '--mat-width 2 --mat-color white',
+  '--scene white-gallery --angle 0',
+  `--provider ${MOCK_PROVIDER}`,
+  `--output ${OUTPUT}`,
+].join(' ')
 
 describe('CLI', () => {
-  it('writes output PNG when given valid args', async () => {
-    await makeArtwork()
-    execSync(
-      `node --import tsx/esm src/cli.ts ${ARTWORK} --frame thin-black --provider ${MOCK_PROVIDER} --output ${OUTPUT}`,
-    )
+  it('writes output PNG with new parametric flags', () => {
+    execSync(`node --import tsx/esm src/cli.ts ${ARTWORK} ${BASE_FLAGS}`)
     expect(existsSync(OUTPUT)).toBe(true)
-    const meta = await sharp(OUTPUT).metadata()
-    expect(meta.format).toBe('png')
+    expect(sharp(OUTPUT).metadata()).resolves.toMatchObject({ format: 'png' })
   })
 
-  it('exits non-zero for unknown frame', async () => {
-    await makeArtwork()
+  it('exits non-zero for invalid angle', () => {
     expect(() =>
       execSync(
-        `node --import tsx/esm src/cli.ts ${ARTWORK} --frame bad-frame --provider ${MOCK_PROVIDER} --output ${OUTPUT}`,
+        `node --import tsx/esm src/cli.ts ${ARTWORK} ${BASE_FLAGS.replace('--angle 0', '--angle 90')}`,
         { stdio: 'pipe' },
       ),
     ).toThrow()
+  })
+
+  it('exits non-zero for unknown material', () => {
+    expect(() =>
+      execSync(
+        `node --import tsx/esm src/cli.ts ${ARTWORK} ${BASE_FLAGS.replace('--material oak', '--material titanium')}`,
+        { stdio: 'pipe' },
+      ),
+    ).toThrow()
+  })
+
+  it('resolves relative provider path from cwd', () => {
+    execSync(
+      `node --import tsx/esm src/cli.ts ${ARTWORK} ${BASE_FLAGS.replace(MOCK_PROVIDER, './tests/mock-provider.mjs')}`,
+    )
+    expect(existsSync(OUTPUT)).toBe(true)
   })
 })
