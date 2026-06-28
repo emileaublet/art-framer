@@ -6,14 +6,9 @@ import { existsSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import sharp from 'sharp'
 
-const FIXTURES = join(import.meta.dirname, 'fixtures')
+const FIXTURES  = join(import.meta.dirname, 'fixtures')
 const OUTPUT_DIR = join(import.meta.dirname, 'output')
 mkdirSync(OUTPUT_DIR, { recursive: true })
-
-const mockProvider: AiProvider = {
-  async prePass(buf) { return buf },
-  async postPass(buf) { return buf },
-}
 
 const baseOpts: Omit<FrameOptions, 'output'> = {
   artworkWidthIn: 18,
@@ -22,11 +17,11 @@ const baseOpts: Omit<FrameOptions, 'output'> = {
   mat: { widthIn: 2, color: 'white' },
   scene: 'white-gallery',
   angleDeg: 0,
-  provider: mockProvider,
+  // no provider — pipeline works without AI
 }
 
-describe('frameArtwork — real artwork fixtures', () => {
-  it('frames mona-lisa.jpg with walnut frame', async () => {
+describe('frameArtwork', () => {
+  it('frames mona-lisa.jpg with walnut frame (no provider)', async () => {
     const output = join(OUTPUT_DIR, 'mona-lisa-walnut-white-gallery.png')
     await frameArtwork(join(FIXTURES, 'mona-lisa.jpg'), {
       ...baseOpts,
@@ -39,7 +34,7 @@ describe('frameArtwork — real artwork fixtures', () => {
     expect(await sharp(output).metadata()).toMatchObject({ format: 'png' })
   })
 
-  it('frames birth-of-venus.jpg with black-paint frame', async () => {
+  it('frames birth-of-venus.jpg with black-paint frame (no provider)', async () => {
     const output = join(OUTPUT_DIR, 'birth-of-venus-black-dark-moody.png')
     await frameArtwork(join(FIXTURES, 'birth-of-venus.jpg'), {
       ...baseOpts,
@@ -69,10 +64,10 @@ describe('frameArtwork — real artwork fixtures', () => {
     expect(await sharp(output).metadata()).toMatchObject({ format: 'png' })
   })
 
-  it('calls provider.prePass and provider.postPass', async () => {
+  it('calls provider.prePass and provider.postPass when provider is supplied', async () => {
     let preCalled = false, postCalled = false
     const tracking: AiProvider = {
-      async prePass(buf) { preCalled = true; return buf },
+      async prePass(buf)  { preCalled = true; return buf },
       async postPass(buf) { postCalled = true; return buf },
     }
     await frameArtwork(join(FIXTURES, 'mona-lisa.jpg'), {
@@ -82,9 +77,9 @@ describe('frameArtwork — real artwork fixtures', () => {
     expect(postCalled).toBe(true)
   })
 
-  it('wraps provider errors as ProviderError', async () => {
+  it('wraps provider.prePass errors as ProviderError', async () => {
     const broken: AiProvider = {
-      async prePass() { throw new Error('network failure') },
+      async prePass()  { throw new Error('network failure') },
       async postPass(buf) { return buf },
     }
     await expect(

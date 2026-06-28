@@ -19,19 +19,24 @@ export interface MatSpec {
 }
 
 export type ScenePreset =
+  // legacy flat presets (compositor-only)
   | 'white-gallery'
   | 'dark-moody'
   | 'warm-living-room'
   | 'concrete-loft'
   | 'natural-light'
-  | 'textured-white-wall'
+  // 5 flat wall presets (glass + shadow in compositor, AI enhances texture)
+  | 'smooth-white-wall'
   | 'white-brick-wall'
-  | 'sage-painted-wall'
   | 'warm-plaster-wall'
+  | 'sage-wall'
+  | 'dark-charcoal-wall'
+  // 5 lifestyle room presets (AI generates full scene via postPass)
   | 'modern-living-room'
   | 'modern-bedroom'
   | 'home-office'
   | 'hallway'
+  | 'reading-nook'
 
 export interface FrameOptions {
   artworkWidthIn: number
@@ -40,7 +45,7 @@ export interface FrameOptions {
   mat: MatSpec
   scene: ScenePreset | string
   angleDeg: number
-  provider: AiProvider
+  provider?: AiProvider
   output: string
 }
 
