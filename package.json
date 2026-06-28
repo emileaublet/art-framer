@@ -16,7 +16,7 @@
   },
   "scripts": {
     "build": "tsup src/index.ts src/cli.ts --format esm --dts --clean",
-    "postbuild": "cp -r src/templates dist/templates",
+    "postbuild": "rm -rf dist/templates && cp -r src/templates dist/templates",
     "test": "vitest run",
     "test:watch": "vitest",
     "generate-templates": "tsx scripts/generate-templates.ts"
