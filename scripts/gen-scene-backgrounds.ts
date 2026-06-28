@@ -10,56 +10,68 @@ import { backgroundPath } from '../src/scenes.js'
 
 const replicate = new Replicate()
 
+// All prompts specify flat frontal camera — perpendicular to the wall, no perspective angle.
+// This is critical: the frame compositor renders artwork at 0° (orthographic), so the
+// background wall must be viewed straight-on or the composite will look wrong.
+const CAMERA = 'Camera is positioned directly facing the wall, perfectly perpendicular, no perspective angle, no vanishing point. The wall fills the frame flat.'
+
 const SCENES: Record<string, string> = {
   'smooth-white-wall':
     'Photorealistic interior photograph of a smooth white-painted plaster wall. ' +
-    'Soft even ambient lighting. Empty wall surface, no artwork or decorations. ' +
-    'Subtle paint roller texture. Clean and minimal.',
+    'Soft even ambient lighting from above. Empty wall, no artwork or decorations. Subtle paint roller texture. ' +
+    CAMERA,
 
   'white-brick-wall':
     'Photorealistic interior photograph of a white-painted brick wall. ' +
     'Brick pattern and mortar lines clearly visible beneath the white paint. ' +
-    'Diffused overhead lighting. Empty wall, no artwork.',
+    'Diffused overhead lighting. Empty wall, no artwork. ' +
+    CAMERA,
 
   'warm-plaster-wall':
     'Photorealistic interior photograph of a warm off-white plaster wall. ' +
-    'Slightly uneven aged European plaster texture. ' +
-    'Warm natural side lighting from the left. Empty wall, no artwork.',
+    'Slightly uneven aged European plaster texture. Warm natural side lighting from the left. ' +
+    'Empty wall, no artwork. ' +
+    CAMERA,
 
   'sage-wall':
     'Photorealistic interior photograph of a smooth muted sage green painted wall. ' +
-    'Desaturated grey-green matte finish. Soft diffused natural light. Empty wall, no artwork.',
+    'Desaturated grey-green matte finish. Soft diffused natural light. Empty wall, no artwork. ' +
+    CAMERA,
 
   'dark-charcoal-wall':
     'Photorealistic interior photograph of a deep charcoal almost-black painted wall. ' +
-    'Rich matte finish, dramatic accent wall. Directional overhead lighting. Empty wall, no artwork.',
+    'Rich matte finish, dramatic accent wall. Directional overhead lighting. Empty wall, no artwork. ' +
+    CAMERA,
 
   'modern-living-room':
-    'Photorealistic interior photograph of a modern Scandinavian living room. ' +
-    'Light warm-white walls, natural oak wood flooring partially visible at the bottom. ' +
-    'Minimal linen sofa partially visible at one edge. ' +
-    'Soft natural daylight from a large window to one side. Clean and uncluttered. Empty wall, no artwork.',
+    'Photorealistic interior photograph of a modern Scandinavian living room wall. ' +
+    'Light warm-white painted wall. Natural oak wood floor partially visible at the very bottom edge. ' +
+    'Hint of a minimal linen sofa at one side edge. Soft natural daylight. Empty wall, no artwork. ' +
+    CAMERA,
 
   'modern-bedroom':
-    'Photorealistic interior photograph of a calm modern bedroom. ' +
-    'Soft white or very light grey walls. Neatly made bed with neutral linen duvet visible below. ' +
-    'Simple bedside table with warm lamp to one side. Warm soft ambient evening light. Empty wall, no artwork.',
+    'Photorealistic interior photograph of a calm modern bedroom wall. ' +
+    'Soft white or very light grey painted wall. Top of a neatly made bed with neutral linen visible at the very bottom edge. ' +
+    'Warm soft ambient evening light. Empty wall, no artwork. ' +
+    CAMERA,
 
   'home-office':
-    'Photorealistic interior photograph of a minimal home office or study. ' +
-    'Light painted walls, simple wooden desk or floating shelf partially visible at the bottom. ' +
-    'Small plant or stacked books to one side. Soft natural daylight from a window. Empty wall, no artwork.',
+    'Photorealistic interior photograph of a minimal home office wall. ' +
+    'Light painted wall. Top of a simple wooden desk partially visible at the very bottom edge. ' +
+    'Soft natural daylight from the side. Empty wall, no artwork. ' +
+    CAMERA,
 
   'hallway':
-    'Photorealistic interior photograph of a simple residential hallway or entrance. ' +
-    'White or very light painted walls. Hint of a door frame or baseboard at one edge. ' +
-    'Soft ambient light, calm, no direct sun. Empty wall, no artwork.',
+    'Photorealistic interior photograph of a simple residential hallway wall. ' +
+    'White or very light painted wall. Baseboard trim visible at the very bottom edge, hint of doorframe at one side. ' +
+    'Soft ambient light, no direct sun. Empty wall, no artwork. ' +
+    CAMERA,
 
   'reading-nook':
-    'Photorealistic interior photograph of a cozy reading nook or library corner. ' +
-    'Warm cream or light beige walls. ' +
-    'Hint of a bookshelf or wooden paneling at one side, warm table lamp casting soft light. ' +
-    'Intimate and calm. Empty wall, no artwork.',
+    'Photorealistic interior photograph of a cozy library or reading nook wall. ' +
+    'Warm cream or light beige painted wall. Hint of a bookshelf at one side edge. ' +
+    'Warm table lamp light casting soft warm glow from the side. Empty wall, no artwork. ' +
+    CAMERA,
 }
 
 // recraft-v3 portrait size (1024x1280 is a supported size)
