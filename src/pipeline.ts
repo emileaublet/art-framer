@@ -8,7 +8,7 @@ export async function frameArtwork(artworkPath: string, options: FrameOptions): 
   const { frame, provider, output } = options
   const scene = loadScene(frame)
 
-  let artwork = readFileSync(artworkPath)
+  let artwork: Buffer = readFileSync(artworkPath)
 
   try {
     artwork = await provider.prePass(artwork, scene.hint)
