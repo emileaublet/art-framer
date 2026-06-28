@@ -62,8 +62,12 @@ const SCENES: Record<string, string> = {
     'Intimate and calm. Empty wall, no artwork.',
 }
 
-const OUT_WIDTH  = 2048
-const OUT_HEIGHT = 2560
+// flux-1.1-pro max dimension is 1440px
+const OUT_WIDTH  = 1024
+const OUT_HEIGHT = 1280
+
+// Delay between requests to avoid rate-limit (429) on low-credit accounts
+const DELAY_MS = 12000
 
 console.log(`Generating ${Object.keys(SCENES).length} scene backgrounds via Replicate flux-1.1-pro...\n`)
 
@@ -82,12 +86,14 @@ for (const [scene, prompt] of Object.entries(SCENES)) {
     const output = await replicate.run('black-forest-labs/flux-1.1-pro', {
       input: {
         prompt,
-        width:         OUT_WIDTH,
-        height:        OUT_HEIGHT,
-        output_format: 'png',
+        width:          OUT_WIDTH,
+        height:         OUT_HEIGHT,
+        output_format:  'png',
         output_quality: 95,
       },
     })
+    // Respect rate limit between requests
+    await new Promise(r => setTimeout(r, DELAY_MS))
 
     const url = typeof output === 'string' ? output : (output as any).url?.() ?? String(output)
     const resp = await fetch(url)
@@ -106,6 +112,7 @@ for (const [scene, prompt] of Object.entries(SCENES)) {
   } catch (err: any) {
     console.error(`  ✗ ${scene}: ${err.cause?.message ?? err.message}`)
     failed++
+    await new Promise(r => setTimeout(r, DELAY_MS))
   }
 }
 
